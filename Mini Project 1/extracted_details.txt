@@ -1,0 +1,195 @@
+
+--- FILE: Mini Project 1\bi-lstm_rul.ipynb ---
+# Remaining Useful Life (RUL) Prediction using Bidirectional LSTM  This notebook implements a **Bidirectional LSTM (Bi-LSTM)** deep learning model to predict the Remaining Useful Life of aircraft engi
+## 1. Data Loading We use the standard C-MAPSS column names for sensors and operational settings.
+## 2. Exploratory Data Analysis (EDA)  ### **2.1 Descriptive Statistics**
+## 3. Data Preprocessing & Feature Engineering  ### **3.1 Calculate RUL** Applying **RUL Clipping** at 125 cycles.
+### **3.3 Sequence Creation** Preparing 3D input for Bi-LSTM.
+## 4. Bidirectional LSTM Model 
+## 5. Training & Evaluation
+
+--- FILE: Mini Project 1\cmapss-rul-predictivemaintenance-eda-modeling.ipynb ---
+## Project Overview: Predicting Remaining Useful Life (RUL) of Turbofan Engines  This project focuses on building a Predictive Maintenance system that estimates the **Remaining Useful Life (RUL)** of 
+## **Data Exploration**
+## Summary 1. These variables carry no information for machine learning models. Their distributions in the test set also show zero variance.    Variance :  ['op_cond_3', 'sensor_1', 'sensor_5', 'senso
+## Covariate Shift
+This code performs feature-wise train–test distribution diagnostics to detect covariate shift and extrapolation risk before model training.
+**Test Out of Train Range = True** The test data contains values that do NOT exist in the train data for that sensor.This is called **covariate shift**, and it is one of the biggest reasons NASA RUL m
+Several sensors have visible distribution drift between train and test:  - cycle: mean ~108 in train vs ~76 in test The test engines operate for fewer cycles → this affects RUL distribution and requir
+## Next  Techniques to Implement:  Several sensors never change , remove them.  - Some sensors shift between train and test .Will **apply scaling per sensor**.  - A few sensors show strong degradation
+## FEATURE ENGINEERING
+1. **Calculating the RUL**
+**2. Capping the RUL(Winsorization)**  RUL capping deliberately collapses the “healthy” region into a single label to prevent noise-fitting and force the model to learn degradation dynamics where sens
+**3. Removing Constant Sensors**  removing useless columns to reduce noise/dimensionality.
+**Normalization:**  CMAPSS uses operating settings that change distributions; normalize per regime or include ops as features. I'll show clustering into regimes then scale per regime (robust).
+This code applies **unsupervised KMeans clustering** to the CMAPSS operating condition variables in order to **identify latent operating regimes** under which aircraft engines run. Because sensor read
+**Computing Rolling Statistics:**  Rolling statistics transform raw sensor time series into localized trend, variability, and extremal features computed per engine, enabling the RUL model to capture s
+**Cyclic Normalization(Differences/Rate of Change)**  Cycle normalization encodes relative position in a sequence, while first differences encode rate and direction of change; together they provide te
+**Interpretation:**  The PCA-based health index exhibits consistent, monotonic degradation trajectories across multiple units, with a clear transition from healthy operation to accelerated degradation
+## Feature Selection
+**1. unit_id** Removed because it is a unique identifier with no predictive meaning; including it would allow the model to memorize individual units rather than learn general patterns.  **2. cycle** R
+These features are excluded because they either leak the target, enable memorization, encode non-comparable time information, or represent operating context rather than the underlying signal of intere
+## MODELING PHASE 
+
+--- FILE: Mini Project 1\engine-rul-cnn-transformer-w-failure-report.ipynb ---
+# Introduction Modern aircraft engines are equipped with hundreds of sensors monitoring temperature, pressure, vibration, and other critical parameters. Predicting Remaining Useful Life (RUL) is essen
+# Load & Preprocess (train / test) We use the CMAPSS (Commercial Modular Aero-Propulsion System Simulation) dataset:\ Features: * 3 operating settings (op_setting_1,2,3) * 21 sensors monitoring engine
+# Sensor trends for all sensors with subsystem color coding Visualize engine health trends for individual sensors mapped to subsystems: 
+## Sequence Builder (train and test)
+## Dataset & Dataloader
+## Model definition (parameterize cnn_channels)
+Advantages over LSTM/GRU: * CNN captures short-term temporal correlations efficiently. * Transformer captures long-term dependencies without vanishing gradients. * Parallelizable for faster training o
+## Asymmetric loss and metrics
+* Penalizes overestimation (critical for safety) * Can also weight loss by true RUL for more focus on long-lived engines
+# Training & evaluation functions * Split training sequences into train/validation sets * Use Adam optimizer and early stopping * Hyperparameter tuning: learning rate, CNN channels, overestimation pen
+## Hyperparameter grid search
+## Load best hyperparameters & final evaluation on test * Metrics:     * RMSE: Measures prediction accuracy     * Overestimation rate: Fraction of predictions over true RUL
+## Attribution (SmoothGrad Grad x Input) and mapping to subsystems
+## Results Visualization * Predicted vs True RUL Scatter * Error distribution * Top contributing sensors/subsystems
+## Generate templated maintenance reports for imminent engines * Highlight top sensors indicating degradation * Identify subsystems likely to fail * Provide inspection recommendations based on predict
+## Optional: LLM rephrasing using HuggingFace
+## Conclusion * CNN-Transformer outperforms classical LSTM/GRU on long sequences. * Asymmetric loss prevents overestimation, enhancing safety. * SmoothGrad attribution provides actionable insights for
+
+--- FILE: Mini Project 1\lstm-al-approach-to-predict-aircraft-engine-rul.ipynb ---
+# **Introduction**  The degradation that can occur to aircraft parts over the course of their lifetime directly impacts both their performance and reliability. In order to provide the necessary mainte
+Tracking and predicting the progression of damage in aircraft engine turbo machinery has some roots in the work of Kurosaki. They estimate the efficiency and the flow rate deviation of the compressor 
+<div style="width:100%;text-align: center;"><img src="https://i.postimg.cc/ZqdZ56mW/turbo-jet-engine-diagram.jpg" width="500px" height="500px"></div>
+An important requirement for the damage modeling process was the availability of a suitable system model that allows input variations of health related parameters and recording of the resulting output
+A layout showing various modules and their connections as modeled in the simulation.
+A low pressure compressor (LPC) and high pressure compressor (HPC) supply compressed high temperature, high pressure gases to the combustor. Low pressure turbine (LPT) can decelerate and pressurize ai
+Our main focus will be on accurately recording low RUL values to prevent putting the engine at danger and forecasting the RUL of the turbofan engine while accounting for HPC failure. Data analysis, da
+When we inspect the descriptive statistics of unit_ID we can see the dataset has a total of 20631 rows, unit numbers start at 1 and end at 100 as expected. What’s interesting, is that the mean and qua
+<div style="width:100%;text-align: center;"><img src="https://i.postimg.cc/Tw0sdPKy/units1.png" width="500px" height="500px"></div>  <div style="width:100%;text-align: center;"><img src="https://i.pos
+Let us see the maximum time cycle of each unit
+NC with a standard deviation of 22.083, suggests that the values of this variable are quite spread out from the mean.
+Takes datalength and earlyrul as input and creates target RUL.  This function takes in two arguments, data_length and early_rul. It returns an array that represents the remaining useful life (RUL) for
+This function takes in input data and target data and processes them with a specified window length and shift size. The output_data is a numpy array with shape (num_batches, window_length, num_feature
+This function processes the test data for a single engine in preparation for making predictions using a trained model. It takes in the test data for a single engine (test_data_for_an_engine), the wind
+The default option is to take only the last window of test data for each engine, which amounts to one window. However, if you set the number to a different value, that many windows from the last will 
+Scale data for all engines
+It is important to process the training and test data separately since the number of engines in each set may differ. Since we scale the entire dataset, we do not need to be concerned about the differi
+**Training data process:**
+**Test data process:**
+The shape of processed_train_data is (17731, 30, 14), which means we have 17731 engines, each with 30 time steps and 14 sensor readings at each time step. The shape of processed_train_targets is (1773
+# **LSTM**  LSTM stands for long short-term memory networks, used in the field of Deep Learning. It is a variety of recurrent neural networks (RNNs) that are capable of learning long-term dependencies
+This function creates a compiled model using the Keras Sequential API with the following architecture: LSTM layer with 128 units, input shape of (window_length, 14), returns sequences and uses the hyp
+Scheduler is a function that adjusts the learning rate during the training process, with the goal of improving the model's performance. By adjusting the learning rate based on the epoch number, the sc
+Measure the difference between predicted and actual values. RMSE = sqrt(1/n * Σ(actual_i - predicted_i)^2)
+Save this RMSE to use as a breaking point in the Active Learning loop
+To compute the RMSE, we consider only the last example of each engine.
+A value of 15.30 indicates that the average deviation of the predictions from the actual values is around 15.30  rul_true and rul_pred should be 1D numpy arrays
+It is a measure of the difference between the actual and predicted RUL values normalized by the standard deviation of the RUL. A higher S-score indicates a better prediction performance. In general, a
+# Active Learning algorithms
+In this section, we will implement and evaluate three active learning strategies to reduce the amount of labeled data required for training our LSTM model on RUL prediction. The objective is to achiev
+## Custom Uncertainty sampling function
+The first approach involves a straightforward way to quantify uncertainty using prediction errors:  In this method, we calculate the squared error between the model's predictions and the ground truth 
+## Monte Carlo Method
+The second approach leverages Monte Carlo (MC) Dropout for estimating model uncertainty:  The idea behind Monte Carlo Dropout is to keep dropout layers active during inference. By running multiple for
+## Ensemble Method
+The third approach involves using an ensemble of models to estimate uncertainty:  This method trains multiple models (with different initializations) on the same dataset. During inference, each model 
+# Results of Active Learning strategies
+
+--- FILE: Mini Project 1\Mini_Project_RUL.ipynb ---
+IMPORTING DATASETS
+COMBINNING DATASET WITH SCENERIO FD00(1-4)
+Transformning the train dataset to match the final X_train shape, removing 10 last rows from each unique engine.
+Splitting the training dataset into 80 percent engines as train and 20 percent engines as validation
+EDA OF THE DATASET
+Training 
+Validation 
+Testing
+
+--- FILE: Mini Project 1\nasa-predictive-maintenance-rul.ipynb ---
+### Data inspection
+### Data visualization & Feature engineering
+### Max time cycle found for each Unit
+### Add RUL column to the data
+### Discovering Correlations 
+##### Dropping unnecessary features (labels and settings)
+##### Scaling the data
+#### plotting features new distribution
+## Models Implementation and instantiation
+#### Linear regression
+#### SVR
+#### Random forest
+### Defining evaluation functions
+### 1st attempt (all features, without historical data)
+#### Linear regresssion
+### SVR
+#### Random forest regressor
+### 2nd attempt (Data without useless sensors, without historical data)
+###  Linear Regression
+### SVR
+### Random forest
+### 3rd attempt (Data without useless sensors, with historical data)
+#### Models evaluation ( rmse, r2, features importance) 
+Linear regression 
+SVR
+Random forest
+Performing Grid Search
+#### Cross Validation 
+### feature importance
+#### Creating new df
+Plotting new features 
+### Best Model
+### Classification (diviser les valeurs de rul en classes) 
+#### Data preparation for classification
+#### Defining evaluation function
+#### Models Implementation
+#### Random forest 
+#### Models evaluation
+### SVC
+### Random Forest Classifier
+### Naive bayes
+### KNN
+
+--- FILE: Mini Project 1\predictive-maintenance-on-nasa-turbofan-jet-engine.ipynb ---
+# <div style="background-color:#7289DA;font-family:calibri;color:#FFF9ED;font-size:150%;text-align:center;border-radius:10px 10px; padding:5px">1. Introduction</div>  ## Problem Statement In high-stak
+# <div style="background-color:#7289DA;font-family:calibri;color:#FFF9ED;font-size:150%;text-align:center;border-radius:10px 10px; padding:5px">2. Setup and Data Loading</div>  This section covers the
+## Load the Datasets  Now, we will load the three key files. The data is space-separated and doesn't contain a header row, so we'll specify that during the loading process.
+## Initial Inspection and Cleanup The raw data comes without column names and often includes extra empty columns at the end due to trailing spaces in the files. We'll clean this up by dropping any unn
+## DataFrames Overview Let's take a quick look at the cleaned training DataFrame to ensure everything has loaded correctly.
+###  Training Data 
+### Test Data 
+### Drop Constant Columns
+###  Ground Truth Data 
+# <div style="background-color:#7289DA;font-family:calibri;color:#FFF9ED;font-size:150%;text-align:center;border-radius:10px 10px; padding:5px">3. Feature Engineering & Exploratory Data Analysis (EDA)
+## Feature Selection: Drop Uninformative Columns Not all features are useful. We will remove columns that have no variance (constant columns) or no significant linear relationship with the RUL. This s
+### Feature Scaling Neural networks train more efficiently when input features are on a similar scale. We will use MinMaxScaler to scale our feature values to a range between 0 and 1.  Note: We are pe
+## Data Visualization Now, let's visualize the cleaned data to better understand its characteristics.  ### Distribution of Engine Lifecycles This plot shows the operational lifespan for the engines in
+###  Sensor Readings Over Time Let's plot some of the highly-correlated remaining sensors for a single engine to see the degradation trends.
+###  Correlation Matrix Heatmap 
+###  Feature Correlation with RUL  Finally, let's examine the feature correlations now that we've removed the uninformative columns. This confirms we are left with a strong set of predictive features.
+# <div style="background-color:#7289DA;font-family:calibri;color:#FFF9ED;font-size:150%;text-align:center;border-radius:10px 10px; padding:5px">4. Model Evaluation Metrics</div>     Before we build ou
+# <div style="background-color:#7289DA;font-family:calibri;color:#FFF9ED;font-size:150%;text-align:center;border-radius:10px 10px; padding:5px">5. Baseline Model: Random Forest Regressor</div>  Before
+## Model Training Now, we'll import the RandomForestRegressor from Scikit-learn, instantiate it with some sensible default parameters, and train it on our newly created training set.
+## Baseline Model Evaluation Let's evaluate our trained Random Forest model on the validation set (X_val, y_val) to see how well it performs. We'll use the same metrics (RMSE and R²) that we defined f
+## NASA Asymmetric Scoring Function Here is a Python function that implements the specific scoring formula for the C-MAPSS dataset. It takes the true RUL values and the predicted RUL values as input a
+# <div style="background-color:#7289DA;font-family:calibri;color:#FFF9ED;font-size:150%;text-align:center;border-radius:10px 10px; padding:5px">6. Baseline Model with Clipped RUL</div>
+## Data Preparation: Piecewise RUL Clipping A key insight for this dataset is that engine degradation is not linear throughout the entire lifecycle. In the early stages of an engine's life, the sensor
+### Visualizing the Effect of Clipping To understand what this transformation does, let's visualize the RUL for a single engine before and after clipping. The new RUL stays constant at 125 during the 
+Now that we have preprocessed our target variable by clipping the RUL, let's see what impact this has on our baseline Random Forest model. The hypothesis is that by training the model on this cleaner 
+## Model Training We will now train a new Random Forest Regressor on the training data with the clipped RUL target (y_train_clipped).
+### Performance Evaluation This is the most important step. We will use our new model to make predictions and then evaluate them against the true, unclipped RULs (y_val_original). This tells us how we
+## Prepare the Test Data for Random Forest Unlike the LSTM, the Random Forest model does not use sequences. It requires a single row of the most recent sensor data to make a prediction for an engine's
+## Make Predictions and Evaluate Now we'll use our best Random Forest model (rf_model_clipped), which was trained on the data with the clipped RUL, to make predictions on this final test set. We will 
+# <div style="background-color:#7289DA;font-family:calibri;color:#FFF9ED;font-size:150%;text-align:center;border-radius:10px 10px; padding:5px">7. LSTM Model </div>  Now we shift our focus to preparin
+### Prepare Test Sequences For the test data, the goal is to predict the final RUL of each engine based on its entire available operational history. Therefore, for each engine in the test set, we only
+## LSTM Model Building & Training With our data now structured into sequences, we are ready to build, compile, and train our Long Short-Term Memory (LSTM) model. This model is specifically designed to
+## Compile the Model Before training, we must configure the model's learning process using the .compile() method. We'll specify:  * Optimizer: adam is a robust and widely used choice that adapts the l
+Check if GPU is available
+## Train the Model Now we are ready to train the model using the .fit() method. We will also use an EarlyStopping callback. This will monitor the validation loss and automatically stop the training pr
+## Visualize Training History Plotting the training and validation loss over epochs is a critical step to diagnose how well our model learned. We are looking for the training and validation curves to 
+# <div style="background-color:#7289DA;font-family:calibri;color:#FFF9ED;font-size:150%;text-align:center;border-radius:10px 10px; padding:5px">8. LSTM Model Evaluation & Comparison  With our LSTM mod
+## Calculate Performance Metrics Let's calculate our key metrics—RMSE, R-squared, and the custom NASA score—to quantify the LSTM model's accuracy.
+## Visualize Prediction Results A scatter plot provides an intuitive visual assessment of the model's performance. We are looking for the points to be clustered tightly around the red "Perfect Predict
+Final Comparison: LSTM vs. Random Forest Now for the final verdict. Let's compare the performance of our advanced LSTM model against our improved Random Forest baseline.
+This table shows a clear victory for the LSTM model, which outperformed the Random Forest across all three evaluation metrics on the final, unseen test set.  ## Metric-by-Metric Breakdown  ### RMSE (R
+# 9. Hyperparameter Tuning with KerasTuner Our LSTM model outperformed the baseline, but its performance is dependent on the choices we made for its architecture—the number of units, dropout rates, an
+## Create a Model-Building Function The core of KerasTuner is a function that builds and returns a Keras model. Inside this function, instead of using fixed values for hyperparameters, we define a sea
+## Instantiate the Tuner and Run the Search Next, we create a RandomSearch tuner object. We tell it which function to use (build_tuned_model), what our objective is (to minimize the val_loss), and how
+##  Train the Final, Tuned Model After the search is complete, KerasTuner provides the best model configuration. We can now retrieve this best model and train it on our full training dataset before th
+# <div style="background-color:#7289DA;font-family:calibri;color:#FFF9ED;font-size:150%;text-align:center;border-radius:10px 10px; padding:5px">10. Final Evaluation of the Tuned Model  The hyperparame
+### Performance Evaluation Let's calculate our standard metrics to see how much of an improvement we've achieved through tuning. We will evaluate against the original, unclipped ground truth RUL value
+## Final Model Comparison Let's create a final comparison table to see the full journey of our modeling efforts, from the initial baseline to our final, optimized LSTM.
+# <div style="background-color:#7289DA;font-family:calibri;color:#FFF9ED;font-size:150%;text-align:center;border-radius:10px 10px; padding:5px">11. Overall Winner  Based on the results in the table, t
